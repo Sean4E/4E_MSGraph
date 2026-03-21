@@ -591,7 +591,7 @@
             </div>
             <div class="chips-area" id="attendeeChips"></div>
         </div>
-        <button class="btn btn-primary" id="btnCreateEvent" onclick="createEvent()">Create Event</button>
+        <button class="btn btn-primary" id="btnCreateEvent" onclick="createCalendarEvent()">Create Event</button>
         <div class="status-msg" id="eventStatus"></div>
         <div class="result-box" id="eventResult"></div>
     </section>
@@ -803,7 +803,9 @@ async function graphCall(method, endpoint, body, actionName) {
     if (body) options.body = JSON.stringify(body);
 
     const response = await fetch(`${GRAPH_BASE}${endpoint}`, options);
-    const data = response.ok ? (response.status === 204 ? {} : await response.json()) : await response.json();
+    let data = {};
+    const text = await response.text();
+    try { data = text ? JSON.parse(text) : {}; } catch(e) { data = {}; }
 
     if (!response.ok) {
         const errMsg = data?.error?.message || `HTTP ${response.status}`;
@@ -849,7 +851,7 @@ async function sendEmail() {
 }
 
 // ---- Create Calendar Event ----
-async function createEvent() {
+async function createCalendarEvent() {
     const title = document.getElementById('eventTitle').value.trim();
     const date = document.getElementById('eventDate').value;
     const time = document.getElementById('eventTime').value;
@@ -870,7 +872,8 @@ async function createEvent() {
         end: { dateTime: end.toISOString(), timeZone: tz },
         body: { contentType: 'HTML', content: desc || '' },
         isOnlineMeeting: isTeams,
-        onlineMeetingProvider: isTeams ? 'teamsForBusiness' : undefined
+        onlineMeetingProvider: isTeams ? 'teamsForBusiness' : undefined,
+        allowNewTimeProposals: true
     };
 
     if (attendees.length > 0) {
