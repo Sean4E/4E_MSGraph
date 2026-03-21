@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4E Microsoft Graph Test Tool</title>
+    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-deep: #0a0a1a;
+            --bg-card: rgba(20, 20, 45, 0.7);
+            --bg-input: rgba(15, 15, 35, 0.8);
+            --border: rgba(124, 58, 237, 0.25);
+            --border-focus: rgba(124, 58, 237, 0.6);
+            --purple: #7c3aed;
+            --purple-light: #a78bfa;
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --text-muted: #64748b;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            background: rgba(10, 10, 26, 0.95);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header-left img {
+            height: 36px;
+            width: auto;
+        }
+        .header-left h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--purple-light), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+        }
+        .status-dot.connected { background: var(--green); box-shadow: 0 0 8px rgba(52, 211, 153, 0.5); }
+        .status-dot.error { background: var(--red); }
+
+        /* Layout */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            backdrop-filter: blur(16px);
+            transition: border-color 0.3s;
+        }
+        .card:hover { border-color: rgba(124, 58, 237, 0.4); }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-title .icon {
+            font-size: 1.3rem;
+        }
+        .card-desc {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group:last-child { margin-bottom: 0; }
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="date"],
+        input[type="time"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+        input::placeholder, textarea::placeholder {
+            color: var(--text-muted);
+        }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--purple), #6d28d9);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+        .btn-cyan {
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            color: white;
+        }
+        .btn-cyan:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(34, 211, 238, 0.3);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+        }
+        .btn-outline:hover:not(:disabled) {
+            border-color: var(--red);
+            color: var(--red);
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+        }
+        .btn-connect {
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            color: white;
+            padding: 12px 32px;
+            font-size: 1rem;
+        }
+        .btn-connect:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0, 120, 212, 0.4);
+        }
+
+        /* Connect section */
+        .connect-area {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 14px 20px;
+            background: rgba(52, 211, 153, 0.08);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            border-radius: var(--radius-sm);
+        }
+        .user-info .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--purple), var(--cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        .user-details { text-align: left; }
+        .user-details .name { font-weight: 600; font-size: 0.95rem; }
+        .user-details .email { font-size: 0.8rem; color: var(--text-dim); }
+
+        /* Toggle switch */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            cursor: pointer;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: 0.2s;
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 2px;
+            top: 2px;
+            background: var(--text-dim);
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        .toggle input:checked + .toggle-slider {
+            background: var(--purple);
+            border-color: var(--purple);
+        }
+        .toggle input:checked + .toggle-slider::before {
+            transform: translateX(20px);
+            background: white;
+        }
+        .toggle-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        /* Attendee chips */
+        .chips-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: var(--cyan-dim);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--cyan);
+        }
+        .chip button {
+            background: none;
+            border: none;
+            color: var(--cyan);
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0;
+            opacity: 0.7;
+        }
+        .chip button:hover { opacity: 1; }
+
+        .add-attendee-row {
+            display: flex;
+            gap: 8px;
+        }
+        .add-attendee-row input { flex: 1; }
+
+        /* Status/result messages */
+        .status-msg {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            display: none;
+        }
+        .status-msg.show { display: block; }
+        .status-msg.sending {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: var(--yellow);
+        }
+        .status-msg.success {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            color: var(--green);
+        }
+        .status-msg.error {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: var(--red);
+        }
+
+        .result-box {
+            margin-top: 12px;
+            padding: 14px;
+            background: rgba(34, 211, 238, 0.05);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            display: none;
+        }
+        .result-box.show { display: block; }
+        .result-box a {
+            color: var(--cyan);
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .result-box a:hover { text-decoration: underline; }
+        .result-item {
+            margin-bottom: 8px;
+        }
+        .result-item:last-child { margin-bottom: 0; }
+        .result-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Log */
+        .log-container {
+            max-height: 350px;
+            overflow-y: auto;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+        }
+        .log-container::-webkit-scrollbar { width: 6px; }
+        .log-container::-webkit-scrollbar-track { background: transparent; }
+        .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .log-entry {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+            display: grid;
+            grid-template-columns: 140px 100px 70px 1fr;
+            gap: 12px;
+            align-items: start;
+        }
+        .log-entry:last-child { border-bottom: none; }
+        .log-time { color: var(--text-muted); }
+        .log-action { color: var(--purple-light); font-weight: 500; }
+        .log-status-ok { color: var(--green); }
+        .log-status-err { color: var(--red); }
+        .log-status-pending { color: var(--yellow); }
+        .log-preview { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .log-empty {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-muted);
+        }
+        .btn-clear-log {
+            float: right;
+            margin-top: -4px;
+        }
+
+        /* Section disabled overlay */
+        .section-disabled {
+            position: relative;
+            pointer-events: none;
+        }
+        .section-disabled::after {
+            content: 'Connect to Microsoft first';
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 10, 26, 0.75);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            backdrop-filter: blur(2px);
+        }
+
+        /* Tooltip */
+        [data-tooltip] {
+            position: relative;
+        }
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 12px;
+            background: #1e1b4b;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .header { padding: 12px 16px; }
+            .header-left h1 { font-size: 1rem; }
+            .container { padding: 16px 12px 40px; }
+            .card { padding: 20px; }
+            .form-row, .form-row-3 { grid-template-columns: 1fr; }
+            .log-entry { grid-template-columns: 1fr; gap: 2px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+    <div class="header-left">
+        <img src="https://sean4e.github.io/4E_Scheduler/logo_WHT.png" alt="4E Logo">
+        <h1>4E Microsoft Graph Test Tool</h1>
+    </div>
+    <div class="status-indicator">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Not connected</span>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Section 1: Connect -->
+    <section class="card" id="connectCard">
+        <div class="card-title"><span class="icon">&#x1F511;</span> Connect to Microsoft</div>
+        <div class="card-desc">Sign in with your Microsoft account to access Graph API features. Your credentials are handled securely by Microsoft — this app never sees your password.</div>
+        <div class="connect-area" id="connectArea">
+            <button class="btn btn-connect" id="btnConnect" onclick="signIn()">
+                <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+                Connect with Microsoft
+            </button>
+        </div>
+        <div id="userInfoArea" style="display:none;">
+            <div class="user-info">
+                <div class="avatar" id="userAvatar"></div>
+                <div class="user-details">
+                    <div class="name" id="userName"></div>
+                    <div class="email" id="userEmail"></div>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="signOut()">Disconnect</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Send Email -->
+    <section class="card section-disabled" id="emailCard">
+        <div class="card-title"><span class="icon">&#x2709;</span> Send Email</div>
+        <div class="card-desc">Send an email from your connected Microsoft account using the Graph API.</div>
+        <div class="form-group">
+            <label for="emailTo">To</label>
+            <input type="email" id="emailTo" placeholder="recipient@example.com" data-tooltip="Enter the recipient's email address">
+        </div>
+        <div class="form-group">
+            <label for="emailSubject">Subject</label>
+            <input type="text" id="emailSubject" placeholder="e.g. Meeting follow-up">
+        </div>
+        <div class="form-group">
+            <label for="emailBody">Body <span style="font-weight:400; text-transform:none; letter-spacing:0;">(HTML supported)</span></label>
+            <textarea id="emailBody" placeholder="Type your message here. You can use HTML tags like &lt;b&gt;bold&lt;/b&gt; or &lt;a href=&quot;...&quot;&gt;links&lt;/a&gt;."></textarea>
+        </div>
+        <button class="btn btn-primary" id="btnSendEmail" onclick="sendEmail()">Send Email</button>
+        <div class="status-msg" id="emailStatus"></div>
+    </section>
+
+    <!-- Section 3: Calendar Event -->
+    <section class="card section-disabled" id="calendarCard">
+        <div class="card-title"><span class="icon">&#x1F4C5;</span> Calendar Event</div>
+        <div class="card-desc">Create a calendar event, optionally with a Teams meeting link and attendees.</div>
+        <div class="form-group">
+            <label for="eventTitle">Title</label>
+            <input type="text" id="eventTitle" placeholder="e.g. Project kickoff meeting">
+        </div>
+        <div class="form-row-3">
+            <div class="form-group">
+                <label for="eventDate">Date</label>
+                <input type="date" id="eventDate">
+            </div>
+            <div class="form-group">
+                <label for="eventTime">Start Time</label>
+                <input type="time" id="eventTime" value="09:00">
+            </div>
+            <div class="form-group">
+                <label for="eventDuration">Duration (mins)</label>
+                <input type="number" id="eventDuration" value="30" min="5" max="480" step="5">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="eventDesc">Description <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></label>
+            <textarea id="eventDesc" placeholder="Add agenda items, notes, or other details..." rows="3"></textarea>
+        </div>
+        <div class="toggle-row">
+            <label class="toggle">
+                <input type="checkbox" id="eventTeamsToggle">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Create as Teams Meeting (adds a join link automatically)</span>
+        </div>
+        <div class="form-group">
+            <label>Attendees <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></label>
+            <div class="add-attendee-row">
+                <input type="email" id="attendeeInput" placeholder="attendee@example.com">
+                <button class="btn btn-cyan btn-sm" onclick="addAttendee()">Add</button>
+            </div>
+            <div class="chips-area" id="attendeeChips"></div>
+        </div>
+        <button class="btn btn-primary" id="btnCreateEvent" onclick="createEvent()">Create Event</button>
+        <div class="status-msg" id="eventStatus"></div>
+        <div class="result-box" id="eventResult"></div>
+    </section>
+
+    <!-- Section 4: Teams Meeting -->
+    <section class="card section-disabled" id="teamsCard">
+        <div class="card-title"><span class="icon">&#x1F4F9;</span> Teams Meeting</div>
+        <div class="card-desc">Create a standalone Teams online meeting (not tied to a calendar event).</div>
+        <div class="form-group">
+            <label for="meetingSubject">Subject</label>
+            <input type="text" id="meetingSubject" placeholder="e.g. Weekly sync">
+        </div>
+        <div class="form-row-3">
+            <div class="form-group">
+                <label for="meetingDate">Date</label>
+                <input type="date" id="meetingDate">
+            </div>
+            <div class="form-group">
+                <label for="meetingTime">Start Time</label>
+                <input type="time" id="meetingTime" value="09:00">
+            </div>
+            <div class="form-group">
+                <label for="meetingDuration">Duration (mins)</label>
+                <input type="number" id="meetingDuration" value="30" min="5" max="480" step="5">
+            </div>
+        </div>
+        <button class="btn btn-cyan" id="btnCreateMeeting" onclick="createMeeting()">Create Meeting</button>
+        <div class="status-msg" id="meetingStatus"></div>
+        <div class="result-box" id="meetingResult"></div>
+    </section>
+
+    <!-- Section 5: Results Log -->
+    <section class="card">
+        <div class="card-title">
+            <span class="icon">&#x1F4CB;</span> Results Log
+            <button class="btn btn-outline btn-sm btn-clear-log" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="card-desc">A running record of all API calls made during this session.</div>
+        <div class="log-container" id="logContainer">
+            <div class="log-empty" id="logEmpty">No API calls yet. Connect and try a feature above.</div>
+        </div>
+    </section>
+
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION — Replace YOUR_CLIENT_ID after Azure registration
+// ============================================================
+const msalConfig = {
+    auth: {
+        clientId: 'YOUR_CLIENT_ID', // Replace after Azure app registration
+        authority: 'https://login.microsoftonline.com/common',
+        redirectUri: 'https://sean4e.github.io/4E_MSGraph/'
+    },
+    cache: {
+        cacheLocation: 'localStorage',
+        storeAuthStateInCookie: false
+    }
+};
+
+const graphScopes = ['User.Read', 'Mail.Send', 'Calendars.ReadWrite', 'OnlineMeetings.ReadWrite'];
+const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
+
+// ============================================================
+// MSAL Initialization
+// ============================================================
+let msalInstance;
+let currentAccount = null;
+let attendees = [];
+
+try {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+} catch (err) {
+    console.error('MSAL init error:', err);
+}
+
+// Handle redirect response on page load
+window.addEventListener('DOMContentLoaded', async () => {
+    // Set default dates to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('eventDate').value = today;
+    document.getElementById('meetingDate').value = today;
+
+    // Allow Enter key to add attendees
+    document.getElementById('attendeeInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addAttendee(); }
+    });
+
+    if (!msalInstance) return;
+
+    try {
+        const response = await msalInstance.handleRedirectPromise();
+        if (response) {
+            currentAccount = response.account;
+            showConnected(currentAccount);
+            addLog('Auth', 'OK', `Signed in as ${currentAccount.username}`);
+        } else {
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                currentAccount = accounts[0];
+                showConnected(currentAccount);
+            }
+        }
+    } catch (err) {
+        console.error('Redirect error:', err);
+        addLog('Auth', 'Error', err.message);
+    }
+});
+
+// ============================================================
+// Auth Functions
+// ============================================================
+async function signIn() {
+    if (!msalInstance) { alert('MSAL not initialized. Check console for errors.'); return; }
+    try {
+        await msalInstance.loginRedirect({ scopes: graphScopes });
+    } catch (err) {
+        console.error('Login error:', err);
+        addLog('Auth', 'Error', err.message);
+    }
+}
+
+function signOut() {
+    if (!msalInstance) return;
+    const account = msalInstance.getAllAccounts()[0];
+    if (account) {
+        msalInstance.logoutRedirect({ account });
+    }
+    currentAccount = null;
+    showDisconnected();
+    addLog('Auth', 'OK', 'Signed out');
+}
+
+async function getAccessToken() {
+    if (!msalInstance || !currentAccount) throw new Error('Not authenticated');
+    try {
+        const response = await msalInstance.acquireTokenSilent({
+            scopes: graphScopes,
+            account: currentAccount
+        });
+        return response.accessToken;
+    } catch (err) {
+        // If silent fails, do interactive
+        const response = await msalInstance.acquireTokenRedirect({ scopes: graphScopes });
+        return response.accessToken;
+    }
+}
+
+// ============================================================
+// UI State
+// ============================================================
+function showConnected(account) {
+    document.getElementById('connectArea').style.display = 'none';
+    document.getElementById('userInfoArea').style.display = 'block';
+    const initials = (account.name || account.username || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    document.getElementById('userAvatar').textContent = initials;
+    document.getElementById('userName').textContent = account.name || 'Unknown';
+    document.getElementById('userEmail').textContent = account.username || '';
+    document.getElementById('statusDot').className = 'status-dot connected';
+    document.getElementById('statusText').textContent = 'Connected';
+
+    // Enable sections
+    ['emailCard', 'calendarCard', 'teamsCard'].forEach(id => {
+        document.getElementById(id).classList.remove('section-disabled');
+    });
+}
+
+function showDisconnected() {
+    document.getElementById('connectArea').style.display = 'block';
+    document.getElementById('userInfoArea').style.display = 'none';
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = 'Not connected';
+
+    ['emailCard', 'calendarCard', 'teamsCard'].forEach(id => {
+        document.getElementById(id).classList.add('section-disabled');
+    });
+}
+
+function showStatus(elementId, type, message) {
+    const el = document.getElementById(elementId);
+    el.className = `status-msg show ${type}`;
+    el.textContent = message;
+}
+
+function hideStatus(elementId) {
+    document.getElementById(elementId).className = 'status-msg';
+}
+
+function showResult(elementId, html) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = html;
+    el.className = 'result-box show';
+}
+
+// ============================================================
+// Graph API Calls
+// ============================================================
+async function graphCall(method, endpoint, body, actionName) {
+    addLog(actionName, 'Pending', `${method} ${endpoint}`);
+    const token = await getAccessToken();
+    const options = {
+        method,
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    };
+    if (body) options.body = JSON.stringify(body);
+
+    const response = await fetch(`${GRAPH_BASE}${endpoint}`, options);
+    const data = response.ok ? (response.status === 204 ? {} : await response.json()) : await response.json();
+
+    if (!response.ok) {
+        const errMsg = data?.error?.message || `HTTP ${response.status}`;
+        addLog(actionName, 'Error', errMsg);
+        throw new Error(errMsg);
+    }
+
+    addLog(actionName, 'OK', `${response.status} — Success`);
+    return data;
+}
+
+// ---- Send Email ----
+async function sendEmail() {
+    const to = document.getElementById('emailTo').value.trim();
+    const subject = document.getElementById('emailSubject').value.trim();
+    const body = document.getElementById('emailBody').value.trim();
+
+    if (!to) { showStatus('emailStatus', 'error', 'Please enter a recipient email address.'); return; }
+    if (!subject) { showStatus('emailStatus', 'error', 'Please enter a subject.'); return; }
+
+    const btn = document.getElementById('btnSendEmail');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending...';
+    showStatus('emailStatus', 'sending', 'Sending email...');
+
+    try {
+        await graphCall('POST', '/me/sendMail', {
+            message: {
+                subject,
+                body: { contentType: 'HTML', content: body || ' ' },
+                toRecipients: [{ emailAddress: { address: to } }]
+            },
+            saveToSentItems: true
+        }, 'Send Email');
+
+        showStatus('emailStatus', 'success', `Email sent successfully to ${to}`);
+    } catch (err) {
+        showStatus('emailStatus', 'error', `Failed: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Send Email';
+    }
+}
+
+// ---- Create Calendar Event ----
+async function createEvent() {
+    const title = document.getElementById('eventTitle').value.trim();
+    const date = document.getElementById('eventDate').value;
+    const time = document.getElementById('eventTime').value;
+    const duration = parseInt(document.getElementById('eventDuration').value) || 30;
+    const desc = document.getElementById('eventDesc').value.trim();
+    const isTeams = document.getElementById('eventTeamsToggle').checked;
+
+    if (!title) { showStatus('eventStatus', 'error', 'Please enter an event title.'); return; }
+    if (!date) { showStatus('eventStatus', 'error', 'Please select a date.'); return; }
+
+    const start = new Date(`${date}T${time || '09:00'}`);
+    const end = new Date(start.getTime() + duration * 60000);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    const eventBody = {
+        subject: title,
+        start: { dateTime: start.toISOString(), timeZone: tz },
+        end: { dateTime: end.toISOString(), timeZone: tz },
+        body: { contentType: 'HTML', content: desc || '' },
+        isOnlineMeeting: isTeams,
+        onlineMeetingProvider: isTeams ? 'teamsForBusiness' : undefined
+    };
+
+    if (attendees.length > 0) {
+        eventBody.attendees = attendees.map(email => ({
+            emailAddress: { address: email },
+            type: 'required'
+        }));
+    }
+
+    const btn = document.getElementById('btnCreateEvent');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating...';
+    showStatus('eventStatus', 'sending', 'Creating event...');
+
+    try {
+        const data = await graphCall('POST', '/me/events', eventBody, 'Create Event');
+
+        let html = `<div class="result-item"><div class="result-label">Event</div><div>${data.subject}</div></div>`;
+        if (data.webLink) {
+            html += `<div class="result-item"><div class="result-label">Event Link</div><a href="${data.webLink}" target="_blank">${data.webLink}</a></div>`;
+        }
+        if (data.onlineMeeting && data.onlineMeeting.joinUrl) {
+            html += `<div class="result-item"><div class="result-label">Teams Meeting Link</div><a href="${data.onlineMeeting.joinUrl}" target="_blank">${data.onlineMeeting.joinUrl}</a></div>`;
+        }
+        showResult('eventResult', html);
+        showStatus('eventStatus', 'success', 'Event created successfully!');
+    } catch (err) {
+        showStatus('eventStatus', 'error', `Failed: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Create Event';
+    }
+}
+
+// ---- Attendee Management ----
+function addAttendee() {
+    const input = document.getElementById('attendeeInput');
+    const email = input.value.trim();
+    if (!email || !email.includes('@')) return;
+    if (attendees.includes(email)) return;
+
+    attendees.push(email);
+    input.value = '';
+    renderAttendees();
+}
+
+function removeAttendee(email) {
+    attendees = attendees.filter(a => a !== email);
+    renderAttendees();
+}
+
+function renderAttendees() {
+    const container = document.getElementById('attendeeChips');
+    container.innerHTML = attendees.map(email =>
+        `<span class="chip">${email}<button onclick="removeAttendee('${email}')">&times;</button></span>`
+    ).join('');
+}
+
+// ---- Create Teams Meeting ----
+async function createMeeting() {
+    const subject = document.getElementById('meetingSubject').value.trim();
+    const date = document.getElementById('meetingDate').value;
+    const time = document.getElementById('meetingTime').value;
+    const duration = parseInt(document.getElementById('meetingDuration').value) || 30;
+
+    if (!subject) { showStatus('meetingStatus', 'error', 'Please enter a meeting subject.'); return; }
+    if (!date) { showStatus('meetingStatus', 'error', 'Please select a date.'); return; }
+
+    const start = new Date(`${date}T${time || '09:00'}`);
+    const end = new Date(start.getTime() + duration * 60000);
+
+    const btn = document.getElementById('btnCreateMeeting');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating...';
+    showStatus('meetingStatus', 'sending', 'Creating Teams meeting...');
+
+    try {
+        const data = await graphCall('POST', '/me/onlineMeetings', {
+            subject,
+            startDateTime: start.toISOString(),
+            endDateTime: end.toISOString()
+        }, 'Create Meeting');
+
+        let html = `<div class="result-item"><div class="result-label">Subject</div><div>${data.subject}</div></div>`;
+        if (data.joinWebUrl) {
+            html += `<div class="result-item"><div class="result-label">Join URL</div><a href="${data.joinWebUrl}" target="_blank">${data.joinWebUrl}</a></div>`;
+        }
+        if (data.id) {
+            html += `<div class="result-item"><div class="result-label">Meeting ID</div><div>${data.id}</div></div>`;
+        }
+        if (data.joinInformation && data.joinInformation.content) {
+            // Extract passcode if present in the join info HTML
+            const match = data.joinInformation.content.match(/Passcode:\s*([^\s<]+)/i);
+            if (match) {
+                html += `<div class="result-item"><div class="result-label">Passcode</div><div>${match[1]}</div></div>`;
+            }
+        }
+        showResult('meetingResult', html);
+        showStatus('meetingStatus', 'success', 'Teams meeting created successfully!');
+    } catch (err) {
+        showStatus('meetingStatus', 'error', `Failed: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Create Meeting';
+    }
+}
+
+// ============================================================
+// Log
+// ============================================================
+function addLog(action, status, preview) {
+    const container = document.getElementById('logContainer');
+    const empty = document.getElementById('logEmpty');
+    if (empty) empty.remove();
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-GB', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+
+    let statusClass;
+    if (status === 'OK') statusClass = 'log-status-ok';
+    else if (status === 'Error') statusClass = 'log-status-err';
+    else statusClass = 'log-status-pending';
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+        <span class="log-time">${timeStr}</span>
+        <span class="log-action">${action}</span>
+        <span class="${statusClass}">${status}</span>
+        <span class="log-preview" title="${preview.replace(/"/g, '&quot;')}">${preview}</span>
+    `;
+    container.prepend(entry);
+}
+
+function clearLog() {
+    const container = document.getElementById('logContainer');
+    container.innerHTML = '<div class="log-empty" id="logEmpty">No API calls yet. Connect and try a feature above.</div>';
+}
+</script>
+
+</body>
+</html>
