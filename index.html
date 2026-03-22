@@ -845,15 +845,17 @@ async function createCalendarEvent() {
     if (!title) { showStatus('eventStatus', 'error', 'Please enter an event title.'); return; }
     if (!date) { showStatus('eventStatus', 'error', 'Please select a date.'); return; }
 
-    const start = new Date(`${date}T${time || '09:00'}`);
-    const end = new Date(start.getTime() + duration * 60000);
+    const startStr = `${date}T${time || '09:00'}:00`;
+    const endDate = new Date(`${date}T${time || '09:00'}`);
+    endDate.setMinutes(endDate.getMinutes() + duration);
+    const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}T${String(endDate.getHours()).padStart(2,'0')}:${String(endDate.getMinutes()).padStart(2,'0')}:00`;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const isTeams = locationType === 'teams';
     const eventBody = {
         subject: title,
-        start: { dateTime: start.toISOString(), timeZone: tz },
-        end: { dateTime: end.toISOString(), timeZone: tz },
+        start: { dateTime: startStr, timeZone: tz },
+        end: { dateTime: endStr, timeZone: tz },
         body: { contentType: 'HTML', content: desc || '' },
         isOnlineMeeting: isTeams,
         onlineMeetingProvider: isTeams ? 'teamsForBusiness' : undefined,
@@ -879,9 +881,7 @@ async function createCalendarEvent() {
     showStatus('eventStatus', 'sending', 'Creating event...');
 
     try {
-        const data = await graphCall('POST', '/me/events', eventBody, 'Create Event', {
-            'Prefer': 'outlook.timezone="' + Intl.DateTimeFormat().resolvedOptions().timeZone + '"'
-        });
+        const data = await graphCall('POST', '/me/events', eventBody, 'Create Event');
 
         let html = `<div class="result-item"><div class="result-label">Event</div><div>${data.subject}</div></div>`;
         if (data.webLink) {
