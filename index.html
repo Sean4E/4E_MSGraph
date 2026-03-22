@@ -576,12 +576,14 @@
             <label for="eventDesc">Description <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></label>
             <textarea id="eventDesc" placeholder="Add agenda items, notes, or other details..." rows="3"></textarea>
         </div>
-        <div class="toggle-row">
-            <label class="toggle">
-                <input type="checkbox" id="eventTeamsToggle">
-                <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label">Create as Teams Meeting (adds a join link automatically)</span>
+        <div class="form-group">
+            <label for="eventLocation">Location</label>
+            <select id="eventLocationType" onchange="toggleLocationInput()" style="margin-bottom:8px">
+                <option value="none">No location</option>
+                <option value="teams">Microsoft Teams Meeting</option>
+                <option value="custom">Custom location</option>
+            </select>
+            <input type="text" id="eventLocationCustom" placeholder="e.g. Room 4B, 123 Main Street" style="display:none">
         </div>
         <div class="form-group">
             <label>Attendees <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></label>
@@ -596,42 +598,7 @@
         <div class="result-box" id="eventResult"></div>
     </section>
 
-    <!-- Section 4: Teams Meeting -->
-    <section class="card section-disabled" id="teamsCard">
-        <div class="card-title"><span class="icon">&#x1F4F9;</span> Teams Meeting</div>
-        <div class="card-desc">Create a standalone Teams online meeting (not tied to a calendar event).</div>
-        <div class="form-group">
-            <label for="meetingSubject">Subject</label>
-            <input type="text" id="meetingSubject" placeholder="e.g. Weekly sync">
-        </div>
-        <div class="form-row-3">
-            <div class="form-group">
-                <label for="meetingDate">Date</label>
-                <input type="date" id="meetingDate">
-            </div>
-            <div class="form-group">
-                <label for="meetingTime">Start Time</label>
-                <input type="time" id="meetingTime" value="09:00">
-            </div>
-            <div class="form-group">
-                <label for="meetingDuration">Duration (mins)</label>
-                <input type="number" id="meetingDuration" value="30" min="5" max="480" step="5">
-            </div>
-        </div>
-        <div class="form-group">
-            <label>Attendees</label>
-            <div class="row" style="gap:8px">
-                <input type="email" id="meetingAttendeeInput" placeholder="email@example.com" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addMeetingAttendee();}">
-                <button class="btn" onclick="addMeetingAttendee()" style="background:#22d3ee;color:#000;padding:8px 16px;">Add</button>
-            </div>
-            <div id="meetingAttendeeChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
-        </div>
-        <button class="btn btn-cyan" id="btnCreateMeeting" onclick="createMeeting()">Create Meeting</button>
-        <div class="status-msg" id="meetingStatus"></div>
-        <div class="result-box" id="meetingResult"></div>
-    </section>
-
-    <!-- Section 5: Results Log -->
+    <!-- Section 4: Results Log -->
     <section class="card">
         <div class="card-title">
             <span class="icon">&#x1F4CB;</span> Results Log
@@ -764,7 +731,7 @@ function showConnected(account) {
     document.getElementById('statusText').textContent = 'Connected';
 
     // Enable sections
-    ['emailCard', 'calendarCard', 'teamsCard'].forEach(id => {
+    ['emailCard', 'calendarCard'].forEach(id => {
         document.getElementById(id).classList.remove('section-disabled');
     });
 }
@@ -775,7 +742,7 @@ function showDisconnected() {
     document.getElementById('statusDot').className = 'status-dot';
     document.getElementById('statusText').textContent = 'Not connected';
 
-    ['emailCard', 'calendarCard', 'teamsCard'].forEach(id => {
+    ['emailCard', 'calendarCard'].forEach(id => {
         document.getElementById(id).classList.add('section-disabled');
     });
 }
@@ -860,6 +827,12 @@ async function sendEmail() {
     }
 }
 
+// ---- Location Toggle ----
+function toggleLocationInput() {
+    const type = document.getElementById('eventLocationType').value;
+    document.getElementById('eventLocationCustom').style.display = type === 'custom' ? 'block' : 'none';
+}
+
 // ---- Create Calendar Event ----
 async function createCalendarEvent() {
     const title = document.getElementById('eventTitle').value.trim();
@@ -867,7 +840,8 @@ async function createCalendarEvent() {
     const time = document.getElementById('eventTime').value;
     const duration = parseInt(document.getElementById('eventDuration').value) || 30;
     const desc = document.getElementById('eventDesc').value.trim();
-    const isTeams = document.getElementById('eventTeamsToggle').checked;
+    const locationType = document.getElementById('eventLocationType').value;
+    const customLocation = document.getElementById('eventLocationCustom').value.trim();
 
     if (!title) { showStatus('eventStatus', 'error', 'Please enter an event title.'); return; }
     if (!date) { showStatus('eventStatus', 'error', 'Please select a date.'); return; }
@@ -876,6 +850,7 @@ async function createCalendarEvent() {
     const end = new Date(start.getTime() + duration * 60000);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+    const isTeams = locationType === 'teams';
     const eventBody = {
         subject: title,
         start: { dateTime: start.toISOString(), timeZone: tz },
@@ -885,6 +860,10 @@ async function createCalendarEvent() {
         onlineMeetingProvider: isTeams ? 'teamsForBusiness' : undefined,
         allowNewTimeProposals: true
     };
+
+    if (locationType === 'custom' && customLocation) {
+        eventBody.location = { displayName: customLocation };
+    }
 
     if (attendees.length > 0) {
         eventBody.attendees = attendees.map(email => ({
