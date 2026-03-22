@@ -650,7 +650,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Set default dates to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('eventDate').value = today;
-    document.getElementById('meetingDate').value = today;
 
     // Allow Enter key to add attendees
     document.getElementById('attendeeInput').addEventListener('keydown', (e) => {
