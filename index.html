@@ -772,7 +772,7 @@ async function graphCall(method, endpoint, body, actionName, extraHeaders = {}) 
         method,
         headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             ...extraHeaders
         }
     };
